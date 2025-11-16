@@ -1,0 +1,36 @@
+name: 1. Validate Geofeed PR
+
+on:
+  pull_request:
+    paths:
+      - 'client_feeds/**' # 只在 client_feeds 目录变更时触发
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+
+      - name: Get changed files
+        id: changed-files
+        run: |
+          # 找出此 PR 中所有在 client_feeds/ 目录下被修改或添加的 .csv 文件
+          # origin/${{ github.base_ref }} ... origin/${{ github.head_ref }} 是
+          # "这个 PR 引入的变更" 的 Git 语法
+          FILES=$(git diff --name-only origin/${{ github.base_ref }}...origin/${{ github.head_ref }} | grep '^client_feeds/.*\.csv$' || true)
+          echo "FILES_TO_CHECK=$FILES" >> $GITHUB_ENV
+
+      - name: Validate Geofeed Files
+        if: env.FILES_TO_CHECK != ''
+        run: |
+          echo "Validating files: $FILES_TO_CHECK"
+          # 将找到的文件列表作为参数传递给 Python 脚本
+          python .github/scripts/validate_geofeed.py $FILES_TO_CHECK
